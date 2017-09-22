@@ -2,7 +2,7 @@
 
 This is a module for the [MagicMirror²](https://github.com/MichMich/MagicMirror/).
 
-Todo: Insert description here!
+Tells you when the next bus arrives at your bus stop.
 
 ## Using the module
 
