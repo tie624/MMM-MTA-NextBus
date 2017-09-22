@@ -9,6 +9,7 @@
 
 Module.register("MMM-MTA-NextBus", {
 	defaults: {
+		maxEntries: 5,
 		updateInterval: 60000,
 		retryDelay: 5000
 	},
@@ -39,7 +40,10 @@ Module.register("MMM-MTA-NextBus", {
 	getData: function() {
 		var self = this;
 
-		var urlApi = "https://jsonplaceholder.typicode.com/posts/1";
+		var urlApi = "http://bustime.mta.info/api/siri/stop-monitoring.json?key=" + 
+			self.config.apiKey + "&version=2&OperatorRef=MTA&MonitoringRef=" + 
+			self.config.busStopCode;
+		//var urlApi = "https://jsonplaceholder.typicode.com/posts/1";
 		var retry = true;
 
 		var dataRequest = new XMLHttpRequest();
@@ -93,12 +97,12 @@ Module.register("MMM-MTA-NextBus", {
 		if (this.dataRequest) {
 			var wrapperDataRequest = document.createElement("div");
 			// check format https://jsonplaceholder.typicode.com/posts/1
-			wrapperDataRequest.innerHTML = this.dataRequest.title;
+			wrapperDataRequest.innerHTML = this.dataRequest;
 
 			var labelDataRequest = document.createElement("label");
 			// Use translate function
 			//             this id defined in translations files
-			labelDataRequest.innerHTML = this.translate("TITLE");
+			labelDataRequest.innerHTML = "Next Bus";
 
 
 			wrapper.appendChild(labelDataRequest);
@@ -106,13 +110,13 @@ Module.register("MMM-MTA-NextBus", {
 		}
 
 		// Data from helper
-		if (this.dataNotification) {
+		/*if (this.dataNotification) {
 			var wrapperDataNotification = document.createElement("div");
 			// translations  + datanotification
 			wrapperDataNotification.innerHTML =  this.translate("UPDATE") + ": " + this.dataNotification.date;
 
 			wrapper.appendChild(wrapperDataNotification);
-		}
+		}*/
 		return wrapper;
 	},
 
@@ -137,13 +141,58 @@ Module.register("MMM-MTA-NextBus", {
 
 	processData: function(data) {
 		var self = this;
-		this.dataRequest = data;
+		this.dataRequest = self.processActionNextBus(data);
 		if (this.loaded === false) { self.updateDom(self.config.animationSpeed) ; }
 		this.loaded = true;
 
 		// the data if load
 		// send notification to helper
 		this.sendSocketNotification("MMM-MTA-NextBus-NOTIFICATION_TEST", data);
+	},
+
+	processActionNextBus: function(response) {
+		
+		var result = '';
+		
+		var serviceDelivery = response.Siri.ServiceDelivery;
+		var updateTimestampReference = new Date(serviceDelivery.ResponseTimestamp);
+		
+		//console.log(updateTimestampReference);
+		
+		// array of buses
+		var visits = serviceDelivery.StopMonitoringDelivery[0].MonitoredStopVisit;
+		var visitsCount = Math.min(visits.length, this.config.maxEntries);
+		
+		for (var i = 0; i < visitsCount; i++) {
+			var journey = visits[i].MonitoredVehicleJourney;
+			var line = journey.PublishedLineName[0]; 
+			
+			if (i === 0) {
+				result += 'The next bus is ';
+			} else {
+				result += ' The following bus is ';
+			}
+			
+			var destinationName = journey.DestinationName[0];
+			if (destinationName.startsWith('LIMITED')) {
+				line += ' LIMITED';
+			}
+			
+			result += line + ', ';
+			
+			var monitoredCall = journey.MonitoredCall;
+			// var expectedArrivalTime = new Date(monitoredCall.ExpectedArrivalTime);
+			if (monitoredCall.ExpectedArrivalTime) {
+				var mins = getArrivalEstimateForDateString(monitoredCall.ExpectedArrivalTime, updateTimestampReference);
+				result += mins + ', ';
+			}
+			
+			
+			var distance = monitoredCall.ArrivalProximityText;
+			result += distance + '.';
+		}
+		
+		return result;
 	},
 
 	// socketNotificationReceived from helper

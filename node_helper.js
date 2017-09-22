@@ -43,5 +43,14 @@ module.exports = NodeHelper.create({
 	// Test another function
 	anotherFunction: function() {
 		return {date: new Date()};
+	},
+
+	getArrivalEstimateForDateString: function(dateString, refDate) {
+		var d = new Date(dateString);
+		
+		var mins = Math.floor((d - refDate) / 60 / 1000);
+		
+		return mins + ' minute' + ((Math.abs(mins) === 1) ? '' : 's');
 	}
+
 });
