@@ -31,7 +31,9 @@ Module.register("MMM-MTA-NextBus", {
 		}, this.config.updateInterval);
 	},
 
-	
+	getData: function() {
+
+	},
 
 
 	/* scheduleUpdate()
