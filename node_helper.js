@@ -6,6 +6,7 @@
  */
 
 var NodeHelper = require("node_helper");
+var http = require('http');
 
 module.exports = NodeHelper.create({
 
@@ -18,7 +19,16 @@ module.exports = NodeHelper.create({
 	 * argument payload mixed - The payload of the notification.
 	 */
 	socketNotificationReceived: function(notification, payload) {
-		if (notification === "MMM-MTA-NextBus-NOTIFICATION_TEST") {
+		var self = this;
+		
+		if (notification == "CONFIG") {
+			self.config = payload;
+			self.getData();
+
+			setInterval(function() {
+				self.getData();
+			}, self.config.updateInterval);
+		} else if (notification === "MMM-MTA-NextBus-NOTIFICATION_TEST") {
 			console.log("Working notification system. Notification:", notification, "payload: ", payload);
 			// Send notification
 			this.sendNotificationTest(this.anotherFunction()); //Is possible send objects :)
@@ -45,7 +55,25 @@ module.exports = NodeHelper.create({
 		return {date: new Date()};
 	},
 
-/*
+	/* scheduleUpdate()
+	 * Schedule next update.
+	 *
+	 * argument delay number - Milliseconds before next update.
+	 *  If empty, this.config.updateInterval is used.
+	 */
+	scheduleUpdate: function(delay) {
+		var nextLoad = this.config.updateInterval;
+		if (typeof delay !== "undefined" && delay >= 0) {
+			nextLoad = delay;
+		}
+		nextLoad = nextLoad ;
+		var self = this;
+		setTimeout(function() {
+			self.getData();
+		}, nextLoad);
+	},
+
+	/*
 	 * getData
 	 * function example return data and show it in the module wrapper
 	 * get a URL request
@@ -60,80 +88,30 @@ module.exports = NodeHelper.create({
 		//var urlApi = "https://jsonplaceholder.typicode.com/posts/1";
 		var retry = true;
 
-		var dataRequest = new XMLHttpRequest();
-		dataRequest.open("GET", urlApi, true);
-		dataRequest.onreadystatechange = function() {
-			console.log(this.readyState);
-			if (this.readyState === 4) {
-				console.log(this.status);
-				if (this.status === 200) {
-					self.processData(JSON.parse(this.response));
-				} else if (this.status === 401) {
-					self.updateDom(self.config.animationSpeed);
-					Log.error(self.name, this.status);
-					retry = false;
-				} else {
-					Log.error(self.name, "Could not load data.");
-				}
-				if (retry) {
-					self.scheduleUpdate((self.loaded) ? -1 : self.config.retryDelay);
-				}
-			}
-		};
-		dataRequest.send();
-	},
+		http.get(urlApi, function(res) {
+			var responseString = "";
 
-	processActionNextBus: function(response) {
-		
-		var result = '';
-		
-		var serviceDelivery = response.Siri.ServiceDelivery;
-		var updateTimestampReference = new Date(serviceDelivery.ResponseTimestamp);
-		
-		//console.log(updateTimestampReference);
-		
-		// array of buses
-		var visits = serviceDelivery.StopMonitoringDelivery[0].MonitoredStopVisit;
-		var visitsCount = Math.min(visits.length, this.config.maxEntries);
-		
-		for (var i = 0; i < visitsCount; i++) {
-			var journey = visits[i].MonitoredVehicleJourney;
-			var line = journey.PublishedLineName[0]; 
-			
-			if (i === 0) {
-				result += 'The next bus is ';
-			} else {
-				result += ' The following bus is ';
-			}
-			
-			var destinationName = journey.DestinationName[0];
-			if (destinationName.startsWith('LIMITED')) {
-				line += ' LIMITED';
-			}
-			
-			result += line + ', ';
-			
-			var monitoredCall = journey.MonitoredCall;
-			// var expectedArrivalTime = new Date(monitoredCall.ExpectedArrivalTime);
-			if (monitoredCall.ExpectedArrivalTime) {
-				var mins = getArrivalEstimateForDateString(monitoredCall.ExpectedArrivalTime, updateTimestampReference);
-				result += mins + ', ';
-			}
-			
-			
-			var distance = monitoredCall.ArrivalProximityText;
-			result += distance + '.';
-		}
-		
-		return result;
-	},
+			if (res.statusCode === 401) {
+				self.sendSocketNotification("ERROR", this.status);
+				Log.error(self.name, this.status);
+				retry = false;
+			} else if (res.statusCode != 200) {
+				Log.error(self.name, "Could not load data.");
+				self.scheduleUpdate((self.loaded) ? -1 : self.config.retryDelay);
+			} 
 
-	getArrivalEstimateForDateString: function(dateString, refDate) {
-		var d = new Date(dateString);
-		
-		var mins = Math.floor((d - refDate) / 60 / 1000);
-		
-		return mins + ' minute' + ((Math.abs(mins) === 1) ? '' : 's');
+			res.on('data', function(data) {
+				responseString += data;
+			});
+			
+			res.on('end', function() {
+				self.sendSocketNotification("DATA", JSON.parse(responseString));
+			});
+
+		}).on('error', function(e) {
+			Log.error("Communications error: ", e.message);
+			self.scheduleUpdate((self.loaded) ? -1 : self.config.retryDelay);
+		});
 	}
 
 });

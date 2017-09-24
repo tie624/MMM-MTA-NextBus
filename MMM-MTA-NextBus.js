@@ -24,35 +24,17 @@ Module.register("MMM-MTA-NextBus", {
 		//Flag for check if module is loaded
 		this.loaded = false;
 
+		this.sendSocketNotification("CONFIG", this.config);
+
+		
+
 		// Schedule update timer.
-		this.getData();
+		/*this.getData();
 		setInterval(function() {
 			self.updateDom();
 		}, this.config.updateInterval);
-	},
-
-	getData: function() {
-
-	},
-
-
-	/* scheduleUpdate()
-	 * Schedule next update.
-	 *
-	 * argument delay number - Milliseconds before next update.
-	 *  If empty, this.config.updateInterval is used.
-	 */
-	scheduleUpdate: function(delay) {
-		var nextLoad = this.config.updateInterval;
-		if (typeof delay !== "undefined" && delay >= 0) {
-			nextLoad = delay;
-		}
-		nextLoad = nextLoad ;
-		var self = this;
-		setTimeout(function() {
-			self.getData();
-		}, nextLoad);
-	},
+		*/
+	},	
 
 	getDom: function() {
 		var self = this;
@@ -61,18 +43,16 @@ Module.register("MMM-MTA-NextBus", {
 		var wrapper = document.createElement("div");
 		// If this.dataRequest is not empty
 		if (this.dataRequest) {
-			var wrapperDataRequest = document.createElement("div");
-			// check format https://jsonplaceholder.typicode.com/posts/1
-			wrapperDataRequest.innerHTML = this.dataRequest;
+			this.dataRequest.forEach(function(data, i) {
+				var wrapperDataRequest = document.createElement("div");
+				
+				wrapperDataRequest.innerHTML = data;
+				wrapperDataRequest.className = "small";
+	
+				wrapper.appendChild(wrapperDataRequest);
+			});
 
-			var labelDataRequest = document.createElement("label");
-			// Use translate function
-			//             this id defined in translations files
-			labelDataRequest.innerHTML = "Next Bus";
-
-
-			wrapper.appendChild(labelDataRequest);
-			wrapper.appendChild(wrapperDataRequest);
+			
 		}
 
 		// Data from helper
@@ -108,19 +88,74 @@ Module.register("MMM-MTA-NextBus", {
 	processData: function(data) {
 		var self = this;
 		this.dataRequest = self.processActionNextBus(data);
-		if (this.loaded === false) { self.updateDom(self.config.animationSpeed) ; }
-		this.loaded = true;
+		self.updateDom(self.config.animationSpeed);
+		//if (this.loaded === false) {  ; }
+		//this.loaded = true;
 
 		// the data if load
 		// send notification to helper
-		this.sendSocketNotification("MMM-MTA-NextBus-NOTIFICATION_TEST", data);
+		//this.sendSocketNotification("MMM-MTA-NextBus-NOTIFICATION_TEST", data);
 	},
 
-	
+	processActionNextBus: function(response) {
+		
+		var result = [];
+		
+		var serviceDelivery = response.Siri.ServiceDelivery;
+		var updateTimestampReference = new Date(serviceDelivery.ResponseTimestamp);
+		
+		//console.log(updateTimestampReference);
+		
+		// array of buses
+		var visits = serviceDelivery.StopMonitoringDelivery[0].MonitoredStopVisit;
+		var visitsCount = Math.min(visits.length, this.config.maxEntries);
+		
+		for (var i = 0; i < visitsCount; i++) {
+			r = '';
+
+			var journey = visits[i].MonitoredVehicleJourney;
+			var line = journey.PublishedLineName[0]; 
+			
+			var destinationName = journey.DestinationName[0];
+			if (destinationName.startsWith('LIMITED')) {
+				line += ' LIMITED';
+			}
+			
+			r += line + ', ';
+			
+			var monitoredCall = journey.MonitoredCall;
+			// var expectedArrivalTime = new Date(monitoredCall.ExpectedArrivalTime);
+			if (monitoredCall.ExpectedArrivalTime) {
+				var mins = this.getArrivalEstimateForDateString(monitoredCall.ExpectedArrivalTime, updateTimestampReference);
+				r += mins + ', ';
+			}
+			
+			
+			var distance = monitoredCall.ArrivalProximityText;
+			r += distance;
+
+			result.push(r);
+		}
+		
+		return result;
+	},
+
+	getArrivalEstimateForDateString: function(dateString, refDate) {
+		var d = new Date(dateString);
+		
+		var mins = Math.floor((d - refDate) / 60 / 1000);
+		
+		return mins + ' minute' + ((Math.abs(mins) === 1) ? '' : 's');
+	},
 
 	// socketNotificationReceived from helper
 	socketNotificationReceived: function (notification, payload) {
-		if(notification === "MMM-MTA-NextBus-NOTIFICATION_TEST") {
+		if (notification === "DATA") {
+			this.processData(payload);
+		} else if (notification === "ERROR") {
+			self.updateDom(self.config.animationSpeed);
+		} 
+		else if (notification === "MMM-MTA-NextBus-NOTIFICATION_TEST") {
 			// set dataNotification
 			this.dataNotification = payload;
 			this.updateDom();
