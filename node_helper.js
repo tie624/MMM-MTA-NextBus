@@ -21,39 +21,19 @@ module.exports = NodeHelper.create({
 	socketNotificationReceived: function(notification, payload) {
 		var self = this;
 		
-		if (notification == "CONFIG") {
+		if (notification === "CONFIG") {
 			self.config = payload;
 			self.getData();
 
 			setInterval(function() {
 				self.getData();
 			}, self.config.updateInterval);
-		} else if (notification === "MMM-MTA-NextBus-NOTIFICATION_TEST") {
-			console.log("Working notification system. Notification:", notification, "payload: ", payload);
-			// Send notification
-			this.sendNotificationTest(this.anotherFunction()); //Is possible send objects :)
+		} else if (notification === "GET_DATA") {
+			self.getData();
 		}
 	},
 
-	// Example function send notification test
-	sendNotificationTest: function(payload) {
-		this.sendSocketNotification("MMM-MTA-NextBus-NOTIFICATION_TEST", payload);
-	},
-
-	// this you can create extra routes for your module
-	extraRoutes: function() {
-		var self = this;
-		this.expressApp.get("/MMM-MTA-NextBus/extra_route", function(req, res) {
-			// call another function
-			values = self.anotherFunction();
-			res.send(values);
-		});
-	},
-
-	// Test another function
-	anotherFunction: function() {
-		return {date: new Date()};
-	},
+	
 
 	/* scheduleUpdate()
 	 * Schedule next update.
@@ -61,7 +41,7 @@ module.exports = NodeHelper.create({
 	 * argument delay number - Milliseconds before next update.
 	 *  If empty, this.config.updateInterval is used.
 	 */
-	scheduleUpdate: function(delay) {
+	/*scheduleUpdate: function(delay) {
 		var nextLoad = this.config.updateInterval;
 		if (typeof delay !== "undefined" && delay >= 0) {
 			nextLoad = delay;
@@ -71,7 +51,7 @@ module.exports = NodeHelper.create({
 		setTimeout(function() {
 			self.getData();
 		}, nextLoad);
-	},
+	},*/
 
 	/*
 	 * getData
@@ -85,19 +65,19 @@ module.exports = NodeHelper.create({
 		var urlApi = "http://bustime.mta.info/api/siri/stop-monitoring.json?key=" + 
 			self.config.apiKey + "&version=2&OperatorRef=MTA&MonitoringRef=" + 
 			self.config.busStopCode;
-		//var urlApi = "https://jsonplaceholder.typicode.com/posts/1";
-		var retry = true;
+		
+		//var retry = true;
 
 		http.get(urlApi, function(res) {
 			var responseString = "";
 
 			if (res.statusCode === 401) {
 				self.sendSocketNotification("ERROR", this.status);
-				Log.error(self.name, this.status);
-				retry = false;
+				console.log(self.name, this.status);
+				//retry = false;
 			} else if (res.statusCode != 200) {
-				Log.error(self.name, "Could not load data.");
-				self.scheduleUpdate((self.loaded) ? -1 : self.config.retryDelay);
+				console.log(self.name, "Could not load data.");
+				//self.scheduleUpdate((self.loaded) ? -1 : self.config.retryDelay);
 			} 
 
 			res.on('data', function(data) {
@@ -109,8 +89,8 @@ module.exports = NodeHelper.create({
 			});
 
 		}).on('error', function(e) {
-			Log.error("Communications error: ", e.message);
-			self.scheduleUpdate((self.loaded) ? -1 : self.config.retryDelay);
+			console.log("Communications error:", e.message);
+			//self.scheduleUpdate((self.loaded) ? -1 : self.config.retryDelay);
 		});
 	}
 

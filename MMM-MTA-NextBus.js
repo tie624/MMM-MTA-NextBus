@@ -9,6 +9,7 @@
 
 Module.register("MMM-MTA-NextBus", {
 	defaults: {
+		timeFormat: config.timeFormat,
 		maxEntries: 5,
 		updateInterval: 60000,
 		retryDelay: 5000
@@ -22,18 +23,15 @@ Module.register("MMM-MTA-NextBus", {
 		var dataNotification = null;
 
 		//Flag for check if module is loaded
-		this.loaded = false;
-
+		//this.loaded = false;
+		console.log(this.config.timeFormat);
 		this.sendSocketNotification("CONFIG", this.config);
 
-		
-
 		// Schedule update timer.
-		/*this.getData();
 		setInterval(function() {
-			self.updateDom();
+			self.sendSocketNotification("GET_DATA");
 		}, this.config.updateInterval);
-		*/
+		
 	},	
 
 	getDom: function() {
@@ -54,15 +52,7 @@ Module.register("MMM-MTA-NextBus", {
 
 			
 		}
-
-		// Data from helper
-		/*if (this.dataNotification) {
-			var wrapperDataNotification = document.createElement("div");
-			// translations  + datanotification
-			wrapperDataNotification.innerHTML =  this.translate("UPDATE") + ": " + this.dataNotification.date;
-
-			wrapper.appendChild(wrapperDataNotification);
-		}*/
+		
 		return wrapper;
 	},
 
@@ -74,15 +64,6 @@ Module.register("MMM-MTA-NextBus", {
 		return [
 			"MMM-MTA-NextBus.css",
 		];
-	},
-
-	// Load translations files
-	getTranslations: function() {
-		//FIXME: This can be load a one file javascript definition
-		return {
-			en: "translations/en.json",
-			es: "translations/es.json"
-		};
 	},
 
 	processData: function(data) {
@@ -136,6 +117,8 @@ Module.register("MMM-MTA-NextBus", {
 
 			result.push(r);
 		}
+
+		result.push('Last Updated: ' + updateTimestampReference.toLocaleTimeString())
 		
 		return result;
 	},
@@ -155,10 +138,5 @@ Module.register("MMM-MTA-NextBus", {
 		} else if (notification === "ERROR") {
 			self.updateDom(self.config.animationSpeed);
 		} 
-		else if (notification === "MMM-MTA-NextBus-NOTIFICATION_TEST") {
-			// set dataNotification
-			this.dataNotification = payload;
-			this.updateDom();
-		}
 	},
 });
