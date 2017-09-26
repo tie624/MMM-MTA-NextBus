@@ -57,7 +57,7 @@ Module.register("MMM-MTA-NextBus", {
 	},
 
 	getScripts: function() {
-		return [];
+		return ["moment.js"];
 	},
 
 	getStyles: function () {
@@ -118,7 +118,9 @@ Module.register("MMM-MTA-NextBus", {
 			result.push(r);
 		}
 
-		result.push('Last Updated: ' + updateTimestampReference.toLocaleTimeString())
+
+
+		result.push('Last Updated: ' + this.formatTimeString(updateTimestampReference));
 		
 		return result;
 	},
@@ -129,6 +131,22 @@ Module.register("MMM-MTA-NextBus", {
 		var mins = Math.floor((d - refDate) / 60 / 1000);
 		
 		return mins + ' minute' + ((Math.abs(mins) === 1) ? '' : 's');
+	},
+
+	formatTimeString: function(date) {
+		var m = moment(date);
+
+		var hourSymbol = "HH";
+		var periodSymbol = "";
+
+		if (this.config.timeFormat !== 24) {
+			hourSymbol = "h";
+			periodSymbol = " A";
+		}
+
+		var format = hourSymbol + ":mm" + periodSymbol;
+
+		return m.format(format);
 	},
 
 	// socketNotificationReceived from helper
